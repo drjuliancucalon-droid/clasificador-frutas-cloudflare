@@ -1,0 +1,18 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "clasificador-frutas-api",
+  "main": "src/index.ts",
+  "compatibility_date": "2025-08-01",
+  "compatibility_flags": ["nodejs_compat"],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "frutas-db",
+      "database_id": "675a961e-267c-4118-89d6-72d0ef83a512"
+    }
+  ],
+  "vars": {
+    "MODEL_KEY": "demo",
+    "CONFIDENCE_THRESHOLD": "0.70"
+  }
+}

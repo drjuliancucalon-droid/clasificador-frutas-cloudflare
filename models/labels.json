@@ -1,0 +1,14 @@
+{
+  "clases": [
+    "manzana",
+    "platano",
+    "naranja",
+    "tomate"
+  ],
+  "clases_originales": [
+    "Apple Red 1",
+    "Banana",
+    "Orange",
+    "Tomato 1"
+  ]
+}

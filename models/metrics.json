@@ -1,0 +1,145 @@
+{
+  "modelo": "MobileNetV2 transfer learning (Keras/TensorFlow)",
+  "dataset": "Fruits-360 (subset 5 categorías)",
+  "img_size": [
+    128,
+    128
+  ],
+  "clases": [
+    "manzana",
+    "platano",
+    "naranja",
+    "tomate"
+  ],
+  "clases_originales": [
+    "Apple Red 1",
+    "Banana",
+    "Orange",
+    "Tomato 1"
+  ],
+  "test_accuracy": 1.0,
+  "test_loss": 0.003642125055193901,
+  "tiempo_inferencia_ms": 7.25,
+  "tiempo_entrenamiento_s": 36.3,
+  "classification_report": {
+    "manzana": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 164.0
+    },
+    "platano": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 166.0
+    },
+    "naranja": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 160.0
+    },
+    "tomate": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 246.0
+    },
+    "accuracy": 1.0,
+    "macro avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 736.0
+    },
+    "weighted avg": {
+      "precision": 1.0,
+      "recall": 1.0,
+      "f1-score": 1.0,
+      "support": 736.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      164,
+      0,
+      0,
+      0
+    ],
+    [
+      0,
+      166,
+      0,
+      0
+    ],
+    [
+      0,
+      0,
+      160,
+      0
+    ],
+    [
+      0,
+      0,
+      0,
+      246
+    ]
+  ],
+  "historial_fase1": {
+    "accuracy": [
+      0.9363636374473572,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "loss": [
+      0.20780408382415771,
+      0.017232265323400497,
+      0.008356787264347076,
+      0.007287580985575914,
+      0.005078076384961605
+    ],
+    "val_accuracy": [
+      0.996960461139679,
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "val_loss": [
+      0.02205423079431057,
+      0.011962560005486012,
+      0.008449416607618332,
+      0.006500458810478449,
+      0.004280239809304476
+    ]
+  },
+  "historial_fase2": {
+    "accuracy": [
+      0.9245989322662354,
+      0.9941176176071167,
+      0.9983957409858704,
+      0.9983957409858704
+    ],
+    "loss": [
+      0.22190824151039124,
+      0.051387716084718704,
+      0.026949845254421234,
+      0.017517777159810066
+    ],
+    "val_accuracy": [
+      1.0,
+      1.0,
+      1.0,
+      1.0
+    ],
+    "val_loss": [
+      0.004861935973167419,
+      0.003179224906489253,
+      0.0022816245909780264,
+      0.0015526787610724568
+    ]
+  }
+}
