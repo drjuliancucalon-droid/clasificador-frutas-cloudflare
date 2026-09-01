@@ -1,0 +1,200 @@
+/* ===== Animaciones ===== */
+@keyframes bounce-soft {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-6px); }
+}
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes pulse-ring {
+  0% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0.45); }
+  70% { box-shadow: 0 0 0 14px rgba(102, 126, 234, 0); }
+  100% { box-shadow: 0 0 0 0 rgba(102, 126, 234, 0); }
+}
+@keyframes fade-in-up {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ===== Pestañas ===== */
+.tab-btn {
+  flex: 1;
+  padding: 11px 16px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  font-weight: 600;
+  font-size: 14px;
+  color: #4b5563;
+  background: #f1f2f6;
+  transition: transform 0.18s ease, box-shadow 0.18s ease, background 0.18s ease, color 0.18s ease;
+}
+.tab-btn:hover {
+  transform: translateY(-2px);
+  background: #e5e7ff;
+  color: #3730a3;
+}
+.tab-btn:active {
+  transform: translateY(0);
+}
+.tab-btn.active {
+  color: white;
+  transform: translateY(-1px);
+}
+.tab-btn.active.tab-predict { background: linear-gradient(135deg, #667eea, #764ba2); box-shadow: 0 6px 16px rgba(102,126,234,0.4); }
+.tab-btn.active.tab-history { background: linear-gradient(135deg, #2563eb, #0ea5e9); box-shadow: 0 6px 16px rgba(37,99,235,0.35); }
+.tab-btn.active.tab-metrics { background: linear-gradient(135deg, #f59e0b, #d97706); box-shadow: 0 6px 16px rgba(217,119,6,0.35); }
+
+/* ===== Zona de carga ===== */
+.upload-zone {
+  position: relative;
+  border: 2.5px dashed #a5b4fc;
+  border-radius: 14px;
+  padding: 40px;
+  text-align: center;
+  cursor: pointer;
+  background: #f7f8ff;
+  transition: border-color 0.2s ease, background 0.2s ease, transform 0.15s ease;
+  margin-bottom: 16px;
+}
+.upload-zone:hover {
+  border-color: #667eea;
+  background: #f0f1ff;
+}
+.upload-zone.has-preview {
+  background: #f8f9ff;
+  border-style: solid;
+  border-color: #c7d2fe;
+  cursor: default;
+  padding: 16px;
+}
+.upload-zone.drag-active {
+  border-color: #764ba2;
+  background: linear-gradient(135deg, #eef0ff, #f6ecff);
+  transform: scale(1.015);
+}
+.upload-icon {
+  font-size: 48px;
+  margin-bottom: 8px;
+  display: inline-block;
+  animation: bounce-soft 2.2s ease-in-out infinite;
+}
+.browse-hint {
+  color: #667eea;
+  font-weight: 700;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+.remove-file-btn {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  width: 28px;
+  height: 28px;
+  border-radius: 999px;
+  border: none;
+  background: rgba(30, 30, 46, 0.65);
+  color: white;
+  font-size: 15px;
+  line-height: 1;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.15s ease, transform 0.15s ease;
+}
+.remove-file-btn:hover {
+  background: #dc2626;
+  transform: scale(1.08);
+}
+.file-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  margin-top: 10px;
+  padding: 4px 10px;
+  border-radius: 999px;
+  background: #eef0ff;
+  color: #3730a3;
+  font-size: 12px;
+  font-weight: 600;
+  max-width: 100%;
+}
+.file-chip span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* ===== Botón Clasificar ===== */
+.classify-btn {
+  width: 100%;
+  padding: 14px 24px;
+  border: none;
+  border-radius: 10px;
+  cursor: pointer;
+  color: white;
+  font-weight: 700;
+  font-size: 16px;
+  margin-bottom: 16px;
+  background: linear-gradient(135deg, #667eea, #764ba2);
+  box-shadow: 0 6px 16px rgba(102,126,234,0.35);
+  transition: transform 0.15s ease, box-shadow 0.15s ease, filter 0.15s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+}
+.classify-btn:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 22px rgba(102,126,234,0.45);
+  filter: brightness(1.05);
+}
+.classify-btn:active:not(:disabled) {
+  transform: translateY(0);
+}
+.classify-btn:disabled {
+  cursor: not-allowed;
+  background: linear-gradient(135deg, #9ca3af, #6b7280);
+  box-shadow: none;
+}
+.classify-btn.ready {
+  animation: pulse-ring 2s ease-out 1;
+}
+.spinner {
+  width: 16px;
+  height: 16px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(255,255,255,0.4);
+  border-top-color: white;
+  animation: spin 0.7s linear infinite;
+}
+
+/* ===== Resultado ===== */
+.result-card {
+  border-radius: 12px;
+  padding: 16px;
+  border: 1px solid transparent;
+  animation: fade-in-up 0.35s ease;
+}
+
+/* ===== Tarjetas de métricas ===== */
+.metric-card {
+  border-radius: 12px;
+  padding: 16px;
+  text-align: center;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+.metric-card:hover {
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+}
+
+/* ===== Historial ===== */
+.history-row {
+  transition: background 0.15s ease;
+  border-radius: 8px;
+}
+.history-row:hover {
+  background: #f7f8ff;
+}
