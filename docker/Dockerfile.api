@@ -1,17 +1,33 @@
-# API local con FastAPI (para cumplir requisito académico de containerización)
-FROM python:3.11-slim
+# API local (Cloudflare Worker) — ejecuta `wrangler dev` en un contenedor
+# para cumplir el requisito académico de containerización.
+#
+# La arquitectura real de este proyecto es un Worker de Cloudflare en
+# TypeScript (api/src/index.ts, con Hono), no un servicio Python/FastAPI —
+# por eso esta imagen es Node + Wrangler, no python:3.11-slim. `wrangler dev`
+# emula el runtime de Cloudflare Workers (incluyendo D1) localmente, sin
+# necesidad de una cuenta de Cloudflare para desarrollo local con
+# `--local`/`--persist-to`.
+#
+# Node 22, no 20: wrangler 4.127.x exige Node >= 22 (falla en runtime con
+# "Wrangler requires at least Node.js v22.0.0" si se usa node:20-slim).
+FROM node:22-slim
 
-WORKDIR /app
+WORKDIR /app/api
 
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential && rm -rf /var/lib/apt/lists/*
+# Solo se copian los manifiestos primero para aprovechar la caché de capas
+# de Docker en reconstrucciones (npm install solo se repite si cambian).
+COPY api/package.json api/package-lock.json* ./
+RUN npm install
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
+COPY api/ ./
 
-COPY ./api /app/api
-COPY ./models /app/models
+EXPOSE 8787
 
-EXPOSE 8000
-
-CMD ["uvicorn", "api.main:app", "--host", "0.0.0.0", "--port", "8000"]
+# --local emula Workers + D1 en el propio contenedor, sin tocar recursos
+# reales de Cloudflare, PERO nunca aplica src/schema.sql por su cuenta —
+# solo crea el archivo SQLite vacío. Sin este paso previo, la tabla
+# "predicciones" no existe y cada POST /predict fallaba con un 500 (el
+# frontend lo mostraba como "no se pudo guardar en el historial"). El
+# schema usa "IF NOT EXISTS", así que aplicarlo en cada arranque es seguro
+# y no borra datos entre reinicios (--persist-to conserva el estado).
+CMD ["sh", "-c", "npx wrangler d1 execute frutas-db --local --persist-to /app/api/.wrangler/state --file=src/schema.sql && npx wrangler dev --local --ip 0.0.0.0 --port 8787 --persist-to /app/api/.wrangler/state"]

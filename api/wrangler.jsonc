@@ -12,7 +12,7 @@
     }
   ],
   "vars": {
-    "MODEL_KEY": "demo",
+    "MODEL_KEY": "mobilenetv2-tfjs-client-v1",
     "CONFIDENCE_THRESHOLD": "0.70"
   }
 }

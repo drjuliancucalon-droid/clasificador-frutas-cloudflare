@@ -9,13 +9,10 @@
     "tail": "wrangler tail"
   },
   "dependencies": {
-    "hono": "^4.6.0",
-    "onnxruntime-web": "^1.20.1",
-    "@jsquash/jpeg": "^1.4.0",
-    "@jsquash/png": "^1.4.0"
+    "hono": "^4.6.0"
   },
   "devDependencies": {
-    "@cloudflare/workers-types": "^4.20250830.0",
+    "@cloudflare/workers-types": "^5.20260828.1",
     "typescript": "^5.6.0",
     "wrangler": "^4.127.1"
   }

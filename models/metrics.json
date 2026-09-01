@@ -1,6 +1,6 @@
 {
   "modelo": "MobileNetV2 transfer learning (Keras/TensorFlow)",
-  "dataset": "Fruits-360 (subset 5 categorías)",
+  "dataset": "Fruits-360 (subset 4 categorías)",
   "img_size": [
     128,
     128

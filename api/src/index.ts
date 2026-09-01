@@ -43,7 +43,6 @@ app.get("/health", async (c) => {
 
 // POST /predict — clasificar una imagen
 app.post("/predict", async (c) => {
-    const startTime = Date.now();
   try {
     const formData = await c.req.formData();
     const file = formData.get("image") as File | null;
@@ -72,20 +71,52 @@ app.post("/predict", async (c) => {
       }, 400);
     }
 
-    // Simular inferencia (en producción cargaría el modelo ONNX desde R2)
-    // NOTA: onnxruntime-web WASM requiere un Worker con mayor memoria
-    // Por ahora usamos una simulación — reemplazar con inferencia real
+    // La inferencia real ocurre en el navegador con TensorFlow.js, usando el
+    // modelo entrenado (MobileNetV2, ver proyecto/scripts/entrenar.py y
+    // frontend/src/App.tsx). Cloudflare Workers en el plan gratuito limita el
+    // tiempo de CPU a 10ms por invocación, insuficiente para un forward-pass
+    // de esta red — ver docs/documentacion-tecnica.md, sección "Arquitectura
+    // de inferencia", para el detalle de esta decisión.
+    //
+    // El Worker recibe la imagen (para las mismas validaciones de siempre) y
+    // el resultado ya calculado por el cliente, y aquí solo lo valida antes
+    // de persistirlo — nunca confía en un valor fuera de las clases conocidas
+    // o un rango de confianza inválido.
     const clases = ["manzana", "platano", "naranja", "tomate"];
-    const confianza = 0.95 + Math.random() * 0.05;
-    const claseIndex = Math.floor(Math.random() * clases.length);
-    const clasePredicha = clases[claseIndex];
 
-    const probabilidades = clases.map((clase, i) => ({
-      clase,
-      probabilidad: i === claseIndex ? confianza : (1 - confianza) / (clases.length - 1),
-    }));
+    const clasePredicha = String(formData.get("clase_predicha") || "");
+    if (!clases.includes(clasePredicha)) {
+      return c.json({
+        error: "Clase predicha inválida o ausente.",
+        clases_validas: clases,
+      }, 400);
+    }
 
-    const inferTime = Date.now() - startTime;
+    const confianzaRaw = Number(formData.get("confianza"));
+    if (!Number.isFinite(confianzaRaw) || confianzaRaw < 0 || confianzaRaw > 1) {
+      return c.json({ error: "Confianza inválida o ausente. Debe ser un número entre 0 y 1." }, 400);
+    }
+    const confianza = confianzaRaw;
+
+    let probabilidades: { clase: string; probabilidad: number }[];
+    try {
+      const parsed = JSON.parse(String(formData.get("probabilidades") || "[]"));
+      if (
+        !Array.isArray(parsed) ||
+        parsed.length !== clases.length ||
+        !parsed.every((p) => clases.includes(p?.clase) && typeof p?.probabilidad === "number")
+      ) {
+        throw new Error("shape");
+      }
+      probabilidades = parsed;
+    } catch {
+      return c.json({ error: "Campo 'probabilidades' inválido o ausente." }, 400);
+    }
+
+    // tiempo_inferencia_ms: tiempo real del forward-pass en TensorFlow.js,
+    // medido en el navegador y enviado por el cliente (no el tiempo del
+    // Worker, que solo valida y persiste — ver comentario más arriba).
+    const tiempoInferenciaMs = Number(formData.get("tiempo_inferencia_ms")) || 0;
 
     // Guardar en D1
     const result = await c.env.DB.prepare(
@@ -97,7 +128,7 @@ app.post("/predict", async (c) => {
       Math.round(confianza * 10000) / 10000,
       JSON.stringify(probabilidades),
       c.req.header("cf-connecting-ip") || "unknown",
-      Math.round(inferTime * 100) / 100,
+      Math.round(tiempoInferenciaMs * 100) / 100,
       file.size
     ).run();
 
@@ -106,7 +137,7 @@ app.post("/predict", async (c) => {
       prediccion: clasePredicha,
       confianza: Math.round(confianza * 10000) / 10000,
       probabilidades,
-      tiempo_inferencia_ms: Math.round(inferTime * 100) / 100,
+      tiempo_inferencia_ms: Math.round(tiempoInferenciaMs * 100) / 100,
       timestamp: new Date().toISOString(),
       id: result.meta.last_row_id,
     });
@@ -165,17 +196,22 @@ app.get("/", async (c) => {
     name: "Clasificador de Frutas API",
     version: "1.0.0",
     author: "Julian Cucalon",
-    description: "API REST de clasificación de frutas y verduras usando TensorFlow + ONNX",
+    description: "API REST de historial y métricas para el clasificador de frutas y verduras. La inferencia (MobileNetV2 vía TensorFlow.js) corre en el navegador; este Worker valida el resultado y lo persiste en D1.",
     endpoints: {
       "GET /": "Documentación de la API",
       "GET /health": "Health check",
-      "POST /predict": "Clasificar una imagen (multipart/form-data, campo 'image')",
+      "POST /predict": "Registra una clasificación (multipart/form-data: 'image', 'clase_predicha', 'confianza', 'probabilidades', 'tiempo_inferencia_ms')",
       "GET /history?page=1&limit=20": "Historial de predicciones",
       "GET /metrics": "Métricas de uso",
       "GET /swagger": "Swagger UI (próximamente)",
     },
+    nota: "Los campos clase_predicha/confianza/probabilidades/tiempo_inferencia_ms normalmente los calcula el frontend con el modelo real (TensorFlow.js). El ejemplo de curl de abajo los pasa a mano solo para poder probar el endpoint de forma aislada.",
     ejemplo_curl: `curl -X POST https://clasificador-frutas-api.dr-juliancucalon.workers.dev/predict \\
-  -F "image=@ruta/a/mi-fruta.jpg"`,
+  -F "image=@ruta/a/mi-manzana.jpg" \\
+  -F "clase_predicha=manzana" \\
+  -F "confianza=0.98" \\
+  -F 'probabilidades=[{"clase":"manzana","probabilidad":0.98},{"clase":"platano","probabilidad":0.01},{"clase":"naranja","probabilidad":0.005},{"clase":"tomate","probabilidad":0.005}]' \\
+  -F "tiempo_inferencia_ms=15"`,
   });
 });
 

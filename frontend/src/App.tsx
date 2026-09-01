@@ -1,7 +1,64 @@
 import React, { useState, useCallback, useRef } from "react";
+import * as tf from "@tensorflow/tfjs";
 
-const API_BASE = import.meta.env.VITE_API_URL || "http://localhost:8787";
+const API_BASE = import.meta.env.VITE_API_URL || "https://clasificador-frutas-api.dr-juliancucalon.workers.dev";
 const CLASES = ["manzana", "platano", "naranja", "tomate"];
+// Mismo orden que labels.json / metrics.json (orden alfabético de las carpetas
+// originales del dataset: Apple Red 1, Banana, Orange, Tomato 1).
+const MODEL_URL = "/model/model.json";
+const IMG_SIZE = 128;
+
+// La inferencia corre en el navegador con TensorFlow.js (no en el Worker):
+// Cloudflare Workers en el plan gratuito limita el tiempo de CPU a 10ms por
+// invocación, insuficiente para un forward-pass de MobileNetV2. El modelo
+// entrenado (proyecto/models/modelo_frutas.keras) se exportó a este formato
+// con scripts/convertir_tfjs.py. Ver docs/documentacion-tecnica.md, sección
+// "Arquitectura de inferencia".
+let modelPromise: Promise<tf.LayersModel> | null = null;
+function getModel(): Promise<tf.LayersModel> {
+  if (!modelPromise) {
+    modelPromise = tf.loadLayersModel(MODEL_URL);
+  }
+  return modelPromise;
+}
+
+async function preprocessImage(file: File): Promise<tf.Tensor4D> {
+  const bitmap = await createImageBitmap(file);
+  const canvas = document.createElement("canvas");
+  canvas.width = IMG_SIZE;
+  canvas.height = IMG_SIZE;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("No se pudo preparar la imagen (canvas no disponible)");
+  ctx.drawImage(bitmap, 0, 0, IMG_SIZE, IMG_SIZE);
+  // El modelo incluye su propia capa Rescaling ([-1,1]); aquí se entregan
+  // valores de píxel crudos (0-255), igual que en el entrenamiento.
+  return tf.tidy(() => tf.browser.fromPixels(canvas).toFloat().expandDims(0) as tf.Tensor4D);
+}
+
+type LocalPrediction = {
+  clasePredicha: string;
+  confianza: number;
+  probabilidades: { clase: string; probabilidad: number }[];
+  tiempoInferenciaMs: number;
+};
+
+async function classifyLocally(file: File): Promise<LocalPrediction> {
+  const model = await getModel();
+  const input = await preprocessImage(file);
+  const t0 = performance.now();
+  const output = model.predict(input) as tf.Tensor;
+  const probs = Array.from(await output.data());
+  const tiempoInferenciaMs = performance.now() - t0;
+  tf.dispose([input, output]);
+
+  const claseIndex = probs.indexOf(Math.max(...probs));
+  return {
+    clasePredicha: CLASES[claseIndex],
+    confianza: probs[claseIndex],
+    probabilidades: CLASES.map((clase, i) => ({ clase, probabilidad: probs[i] })),
+    tiempoInferenciaMs,
+  };
+}
 
 type PredictionResult = {
   success: boolean;
@@ -59,14 +116,39 @@ export default function App() {
     setLoading(true);
     setError(null);
     try {
+      // 1) Inferencia real en el navegador (TensorFlow.js + modelo entrenado)
+      const local = await classifyLocally(selectedFile);
+
+      // 2) Se envía la imagen + la predicción calculada al Worker, que valida,
+      //    persiste en D1 y devuelve el registro (id, timestamp) para historial/métricas.
       const formData = new FormData();
       formData.append("image", selectedFile);
-      const res = await fetch(`${API_BASE}/predict`, { method: "POST", body: formData });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "Error en la predicción");
-      setResult(data);
+      formData.append("clase_predicha", local.clasePredicha);
+      formData.append("confianza", String(local.confianza));
+      formData.append("probabilidades", JSON.stringify(local.probabilidades));
+      formData.append("tiempo_inferencia_ms", String(local.tiempoInferenciaMs));
+
+      try {
+        const res = await fetch(`${API_BASE}/predict`, { method: "POST", body: formData });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || "Error al registrar la predicción");
+        setResult(data);
+      } catch (apiErr) {
+        // La clasificación ya ocurrió en el navegador; si solo falla el
+        // registro remoto, igual se muestra el resultado real al usuario.
+        setResult({
+          success: true,
+          prediccion: local.clasePredicha,
+          confianza: local.confianza,
+          probabilidades: local.probabilidades,
+          tiempo_inferencia_ms: local.tiempoInferenciaMs,
+          timestamp: new Date().toISOString(),
+          id: 0,
+        });
+        setError("Clasificado localmente, pero no se pudo guardar en el historial (API no disponible)");
+      }
     } catch (err) {
-      setError(err instanceof Error ? err.message : "Error de conexión");
+      setError(err instanceof Error ? err.message : "Error al clasificar la imagen");
     } finally {
       setLoading(false);
     }

@@ -6,18 +6,13 @@ services:
       context: .
       dockerfile: docker/Dockerfile.api
     ports:
-      - "8000:8000"
-    volumes:
-      - ./models:/app/models
-    environment:
-      - MODEL_PATH=/app/models/modelo_frutas.keras
-      - CONFIDENCE_THRESHOLD=0.70
+      - "8787:8787"
 
   frontend:
-    image: nginx:alpine
+    build:
+      context: .
+      dockerfile: docker/Dockerfile.frontend
     ports:
       - "8080:80"
-    volumes:
-      - ./frontend/dist:/usr/share/nginx/html:ro
     depends_on:
       - api

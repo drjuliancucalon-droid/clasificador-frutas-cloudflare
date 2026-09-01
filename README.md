@@ -1,12 +1,14 @@
 # 🍎 Clasificador de Frutas y Verduras — Actividad 3-1 UAM
 
-**Autor:** Julian Cucalon  
-**Curso:** Aplicaciones en la Nube y Servicios Especializados en Ciencia de Datos  
+**Autor:** Julian Cucalon
+**Curso:** Aplicaciones en la Nube y Servicios Especializados en Ciencia de Datos
 **Valor:** 35% de la evaluación sumativa
 
 ## 📋 Descripción
 
-Sistema completo de clasificación de imágenes de frutas y verduras usando **Transfer Learning con MobileNetV2** (TensorFlow/Keras), con **API REST** y **frontend web** desplegados en **Cloudflare** (Workers + Pages + D1).
+Sistema completo de clasificación de imágenes de frutas y verduras usando **Transfer Learning con MobileNetV2** (TensorFlow/Keras), con **API REST** (Cloudflare Worker) y **frontend web** (React + Cloudflare Pages), desplegado en Cloudflare con costo \$0.
+
+La inferencia del modelo corre en el navegador con **TensorFlow.js** — no en el Worker — porque el plan gratuito de Cloudflare Workers limita el tiempo de CPU a 10ms por invocación, insuficiente para un forward-pass de MobileNetV2. Ver `docs/documentacion-tecnica.md`, sección 1.1, para el detalle de esta decisión.
 
 ## 🚀 URLs del sistema desplegado
 
@@ -20,17 +22,18 @@ Sistema completo de clasificación de imágenes de frutas y verduras usando **Tr
 
 ## 🧠 Modelo ML
 
-- **Arquitectura:** MobileNetV2 (transfer learning) + capas densas personalizadas
+- **Arquitectura:** MobileNetV2 pre-entrenado en ImageNet (transfer learning) + capas densas personalizadas
 - **Dataset:** Fruits-360 (subconjunto de 4 clases: manzana, plátano, naranja, tomate)
-- **Precisión en test:** 100%
-- **Tiempo de inferencia:** 7.25 ms por imagen
-- **Exportación:** ONNX (8.93 MB) + TensorFlow (19.35 MB)
+- **Precisión en test:** 100% (ver nota sobre generalización en `docs/documentacion-tecnica.md`, sección 4)
+- **Tiempo de inferencia (evaluación offline):** 7.25 ms/imagen
+- **Exportación:** `.keras` (19.35 MB), `.onnx` (8.93 MB) y **TensorFlow.js** (~8.9 MB — el que efectivamente usa el sistema desplegado)
 
-### Entrenamiento
+### Entrenamiento y exportación
 
 ```bash
-pip install tensorflow tf2onnx onnx scikit-learn pillow numpy
+pip install tensorflow tf2onnx tensorflowjs scikit-learn pillow numpy
 python scripts/entrenar.py
+python scripts/convertir_tfjs.py
 ```
 
 ## 📡 API REST
@@ -39,119 +42,95 @@ python scripts/entrenar.py
 
 | Método | Ruta | Descripción |
 |---|---|---|
-| `GET` | `/` | Documentación de la API |
-| `GET` | `/health` | Health check |
-| `POST` | `/predict` | Clasificar una imagen |
-| `GET` | `/history` | Historial de predicciones |
-| `GET` | `/metrics` | Métricas de uso |
+| `GET /` | - | Documentación de la API |
+| `GET /health` | Health check | Estado del sistema |
+| `POST /predict` | Registrar clasificación | Recibe imagen + predicción (calculada en el navegador), valida y persiste |
+| `GET /history` | Historial | Predicciones anteriores (paginado) |
+| `GET /metrics` | Métricas | Dashboard de uso |
 
-### Ejemplo de uso
-
-```bash
-curl -X POST https://clasificador-frutas-api.dr-juliancucalon.workers.dev/predict \
-  -F "image=@ruta/a/mi-manzana.jpg"
-```
-
-Respuesta:
-```json
-{
-  "success": true,
-  "prediccion": "manzana",
-  "confianza": 0.98,
-  "probabilidades": [
-    { "clase": "manzana", "probabilidad": 0.98 },
-    { "clase": "platano", "probabilidad": 0.01 },
-    { "clase": "naranja", "probabilidad": 0.005 },
-    { "clase": "tomate", "probabilidad": 0.005 }
-  ],
-  "tiempo_inferencia_ms": 15,
-  "timestamp": "2026-08-31T19:00:00.000Z",
-  "id": 1
-}
-```
+**Stack:** Cloudflare Workers + Hono (TypeScript) + D1 (SQLite)
 
 ## 🖥️ Frontend
 
-React + Vite con 3 pestañas:
-- **🔮 Clasificar**: Subir imagen (drag & drop) y ver resultado
-- **📋 Historial**: Ver predicciones anteriores
-- **📊 Métricas**: Dashboard de uso
+**Stack:** React 18 + Vite 5 + TypeScript + TensorFlow.js
 
-## 🐳 Docker (requisito académico)
+Funcionalidades:
+- Drag & drop para subir imágenes
+- Clasificación real en el navegador (TensorFlow.js + modelo MobileNetV2 entrenado)
+- Visualización de resultados con emoji + barra de confianza
+- Historial de predicciones
+- Dashboard de métricas de uso
 
-```bash
-# Construir y ejecutar localmente
-docker-compose up --build
-```
-
-## ☁️ Despliegue en Cloudflare
+## 🐳 Docker
 
 ```bash
-# API Worker
-cd api && npx wrangler deploy
-
-# Frontend Pages
-cd frontend && npx vite build
-npx wrangler pages deploy dist --project-name clasificador-frutas
-
-# Base de datos D1
-npx wrangler d1 create frutas-db
-npx wrangler d1 execute frutas-db --remote --file api/src/schema.sql
+docker compose up --build
+# API (Worker emulado localmente): http://localhost:8787
+# Frontend: http://localhost:8080
 ```
 
-## 📁 Estructura del proyecto
+## 🌐 URLs del Sistema
+
+| Componente | URL |
+|---|---|
+| **Frontend** | https://1378fe71.clasificador-frutas.pages.dev |
+| **API REST** | https://clasificador-frutas-api.dr-juliancucalon.workers.dev |
+| **Health Check** | https://clasificador-frutas-api.dr-juliancucalon.workers.dev/health |
+| **Repositorio GitHub** | https://github.com/drjuliancucalon-droid/clasificador-frutas-cloudflare |
+
+---
+
+## 📁 Estructura de la Carpeta de Entrega
 
 ```
-clasificador-frutas-cloudflare/
-├── notebooks/          # Notebooks de entrenamiento (pendiente)
-├── api/                # API REST (Cloudflare Worker)
-│   ├── src/
-│   │   ├── index.ts    # Código del Worker
-│   │   └── schema.sql  # Esquema D1
+Entrega_Final_Actividad3-1/
+├── README.md                          ← Este archivo
+├── notebooks/
+│   └── entrenar.py                    ← Script de entrenamiento
+├── api/
 │   ├── package.json
-│   └── wrangler.jsonc
-├── frontend/           # Frontend React
-│   ├── src/
-│   │   ├── App.tsx     # Componente principal
-│   │   └── main.tsx    # Entry point
+│   ├── wrangler.jsonc                 ← Config Cloudflare Worker
+│   └── src/
+│       ├── index.ts                   ← Código de la API (5 endpoints)
+│       └── schema.sql                 ← Esquema D1 (SQLite)
+├── frontend/
+│   ├── public/
+│   │   └── model/                     ← Modelo TensorFlow.js (usado en producción)
 │   ├── index.html
 │   ├── package.json
-│   └── vite.config.ts
-├── models/             # Modelos entrenados
-│   ├── modelo_frutas.keras
-│   ├── modelo_frutas.onnx
-│   ├── metrics.json
-│   └── labels.json
-├── scripts/            # Scripts de entrenamiento
-│   ├── entrenar.py
-│   └── convertir_tfjs.py
-├── docker/             # Dockerfiles
-├── docs/               # Documentación técnica
-├── dataset/            # Dataset Fruits-360
-├── docker-compose.yml
-├── MEMORY.md
-└── README.md
+│   ├── vite.config.ts
+│   └── src/
+│       ├── main.tsx                   ← Entry point React
+│       └── App.tsx                    ← Componente principal (3 tabs + inferencia TF.js)
+├── docker/
+│   ├── Dockerfile.api                 ← Node + Wrangler (emula el Worker)
+│   ├── Dockerfile.frontend            ← Build Vite + nginx
+│   └── docker-compose.yml
+├── docs/
+│   ├── documentacion-tecnica.md       ← Documentación técnica completa
+│   └── screenshots/                   ← Evidencia de pruebas
+├── assets/
+│   ├── metrics.json                   ← Métricas del modelo
+│   └── labels.json                    ← Etiquetas de clases
+└── .gitignore
 ```
 
-## 📊 Métricas del modelo
+---
 
-| Métrica | Valor |
-|---|---|
-| Test Accuracy | 100% |
-| Test Loss | 0.0036 |
-| Tiempo de inferencia | 7.25 ms |
-| Tamaño ONNX | 8.93 MB |
-| Clases | manzana, plátano, naranja, tomate |
-| Arquitectura | MobileNetV2 + Transfer Learning |
+## 📋 Estado de cumplimiento (verificado, no autoevaluado)
 
-## 🛠️ Tecnologías
+Ver `Informe_Validacion_Actividad3-1.docx` en la raíz del proyecto para la auditoría completa con evidencia. Estado tras aplicar las correcciones de esa auditoría:
 
-- **ML**: TensorFlow 2.21, Keras, MobileNetV2, ONNX
-- **API**: Cloudflare Workers, Hono, TypeScript, D1 (SQLite)
-- **Frontend**: React 18, Vite 8, TypeScript
-- **Infra**: Cloudflare (Workers + Pages + D1), Docker
-- **Entrenamiento**: Python 3.13, scikit-learn, tf2onnx
+| Criterio | % | Estado |
+|---|---|---|
+| Funcionalidad del modelo (precisión, edge cases, tiempo) | 25% | Modelo real conectado end-to-end (TensorFlow.js); pendiente de verificación final tras redeploy |
+| Implementación técnica (calidad código, arquitectura) | 25% | TypeScript, Hono, React, validaciones cliente/servidor |
+| Despliegue y operación (cloud, Docker, monitoreo) | 25% | Cloudflare + Docker (Node/Wrangler) + D1 + métricas; pendiente de verificación final tras redeploy |
+| Documentación y entregables (claridad, completitud) | 25% | README, docs, diagramas, ejemplos, checklist honesto |
 
-## 📝 Licencia
+## 📝 Notas para el Estudiante
 
-Proyecto académico — Universidad Autónoma de Manizales (UAM)
+1. **Modelos grandes** (`.keras` y `.onnx`) no se incluyen en GitHub por tamaño; el modelo TensorFlow.js en `frontend/public/model/` sí se incluye (es el que usa el sistema en producción).
+2. Para **re-entrenar**: `python scripts/entrenar.py` y luego `python scripts/convertir_tfjs.py`.
+3. Para **re-desplegar la API**: `npx wrangler deploy` desde `api/`.
+4. Para **reconstruir el frontend**: `npx vite build` desde `frontend/` (la URL de la API en producción está fijada en `vite.config.ts`, no depende de variables de entorno del shell).

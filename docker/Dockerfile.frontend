@@ -1,0 +1,19 @@
+# Build multi-stage: compila el frontend (Vite) y lo sirve con nginx.
+# Evita depender de que exista un frontend/dist/ generado manualmente antes
+# de `docker compose up --build` — el build ocurre dentro del contenedor.
+
+FROM node:20-slim AS build
+WORKDIR /app/frontend
+COPY frontend/package.json frontend/package-lock.json* ./
+RUN npm install
+COPY frontend/ ./
+# Le dice a vite.config.ts que este es el build DENTRO de Docker, para que
+# apunte al contenedor "api" local (expuesto en el host como
+# http://localhost:8787, ver docker-compose.yml) en vez de a la API de
+# producción — si no, el contenedor "api" quedaría corriendo sin uso.
+ENV DOCKER_LOCAL_BUILD=true
+RUN npx vite build
+
+FROM nginx:alpine
+COPY --from=build /app/frontend/dist /usr/share/nginx/html
+EXPOSE 80
